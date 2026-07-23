@@ -267,3 +267,7 @@ npm publish --access public
 - 本 server 仅是持有 key 的 HTTP 客户端,不缓存凭证或文档内容。
 - 模型管理工具永不回显密钥(应用侧仅返回 `hasApiKey` 布尔)。
 - `.mcp.json`(含真实 key)已被 `.gitignore` 忽略,只提交 `.mcp.json.example` 模板。
+
+## License · 许可证
+
+[Apache License 2.0](./LICENSE). 与主仓库 [Synthetix](https://github.com/WalkCloud/Synthetix) 一致。
