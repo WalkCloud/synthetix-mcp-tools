@@ -1,18 +1,46 @@
 {
-  "name": "@synthetix/mcp-server",
+  "name": "@walkcloud/synthetix-mcp",
   "version": "1.0.0",
-  "description": "MCP server bridging AI agents (Claude Code, Codex, OpenCode) to the Synthetix app via its REST API.",
+  "description": "MCP server bridging AI agents (Claude Code, Codex, OpenCode) to the Synthetix app — ingest documents, brainstorm outlines, write long-form docs with dual-model compare, export.",
   "type": "module",
   "bin": {
     "synthetix-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    ".mcp.json.example"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "synthetix",
+    "ai-agent",
+    "claude-code",
+    "codex",
+    "opencode",
+    "rag",
+    "knowledge-base",
+    "long-form-writing"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WalkCloud/synthetix-mcp-tools.git"
+  },
+  "homepage": "https://github.com/WalkCloud/synthetix-mcp-tools#readme",
+  "bugs": {
+    "url": "https://github.com/WalkCloud/synthetix-mcp-tools/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -26,5 +54,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

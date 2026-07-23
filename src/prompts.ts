@@ -134,6 +134,91 @@ export function registerPrompts(server: McpServer): void {
       ],
     })
   );
+
+  // ── 知识深读:对单个文档做结构化深度解读 ────────────────────────────
+  server.prompt(
+    "knowledge-deep-dive",
+    "知识深读:对一篇已上传的文档做深度解读——检索核心要点、提炼结构化摘要、列出关键概念。适合研读/学习/资料消化。",
+    {
+      document_id: z.string().describe("已上传文档的 ID(从 list_documents 获取)"),
+      focus: z
+        .string()
+        .optional()
+        .describe("关注的侧重点,如'技术架构''商业逻辑''风险点'。留空则全面解读"),
+    },
+    ({ document_id, focus }) => ({
+      messages: [
+        user(
+          `我要深度解读文档 ${document_id}` +
+            (focus ? `(重点关注:${focus})` : "(全面解读)") +
+            "。首先用 get_document 确认文档已就绪(status=ready);" +
+            "然后用 search_knowledge 对该文档做多次检索,覆盖核心主题、关键概念、重要论点;" +
+            "最后给我一份结构化解读:核心观点、关键概念清单、章节脉络、值得注意的细节。" +
+            "不要写作,只做解读和提炼。"
+        ),
+      ],
+    })
+  );
+
+  // ── 方案速成:基于原型从零生成结构化方案/投标书 ─────────────────────
+  server.prompt(
+    "proposal-from-scratch",
+    "方案速成:基于文档原型(技术方案/投标/咨询/规划等)从零生成一份结构完整的长文。跳过冗长的头脑风暴,直奔结构化生成,适合有明确类型的成稿需求。",
+    {
+      topic: z.string().describe("方案主题,如'XX 系统集成项目实施方案'"),
+      archetype: z
+        .enum([
+          "technical_solution",
+          "proposal",
+          "bidding",
+          "consulting",
+          "planning",
+          "assessment",
+          "operations",
+        ])
+        .describe("文档原型:technical_solution=技术方案/proposal=建议书/bidding=投标/consulting=咨询报告/planning=规划/assessment=评估/operations=运维"),
+      length: z
+        .enum(["short", "standard", "full"])
+        .optional()
+        .describe("篇幅:short(简版)/standard(标准)/full(完整)。默认 standard"),
+      key_requirements: z
+        .string()
+        .optional()
+        .describe("必须覆盖的关键要求(自然语言,如'含技术路线、实施计划、风险管控')"),
+    },
+    ({ topic, archetype, length = "standard", key_requirements }) => ({
+      messages: [
+        user(
+          `我要写一份关于「${topic}」的文档,类型:${archetype},篇幅:${lengthHint(length)}。` +
+            (key_requirements ? `必须覆盖:${key_requirements}。` : "") +
+            "创建头脑风暴会话后,只用很少几轮 brainstorm_message 快速确认核心需求(受众/范围/篇幅)," +
+            "不要过度提问。需求明确后立即用 generate_outline 生成大纲(异步,用 get_task_status 轮询)," +
+            "get_outline 展示给我确认,然后用 create_draft 创建草稿,generate_all_sections 一次性生成全篇" +
+            "(整篇生成会自动确认锁定),最后 export_draft 导出。追求高效成稿。"
+        ),
+      ],
+    })
+  );
+
+  // ── 导出检查:核对草稿是否就绪可导出 ────────────────────────────────
+  server.prompt(
+    "export-readiness-check",
+    "导出就绪检查:检查一篇草稿是否所有章节都已确认(locked),列出未完成章节,完成后可直接导出。适合导出前的最后一道核对。",
+    {
+      draft_id: z.string().describe("要检查的草稿 ID"),
+    },
+    ({ draft_id }) => ({
+      messages: [
+        user(
+          `检查草稿 ${draft_id} 是否可以导出。用 get_draft 查看所有章节状态:` +
+            "只有 locked/summarized 状态的章节会被导出。" +
+            "如果所有章节都已确认,用 assemble_preview 组装全文预览给我看,并提示可以用 export_draft 导出;" +
+            "如果有未确认的章节(reviewing/pending/failed),列出来告诉我哪些需要先 generate_section + confirm_section。" +
+            "不要自动批量生成,只做检查和报告。"
+        ),
+      ],
+    })
+  );
 }
 
 function lengthHint(length: string): string {

@@ -25,40 +25,26 @@
 
 ---
 
-## 安装(2 步)
+## 安装
 
-### 第 1 步:获取代码
+### 方式一:npx 一行配置(推荐,发布后零安装)
 
+本包发布在 npm(`@walkcloud/synthetix-mcp`)。用户**无需 git clone、无需 build**——只需在客户端配置里写一行,`npx` 会自动拉取运行:
+
+**Claude Code**(一行命令):
 ```bash
-git clone <synthetix 仓库地址>
-cd synthetix/mcp-server
+claude mcp add --scope user synthetix \
+  -e SYNTHETIX_API_KEY=sk-synt-你的密钥 \
+  -- npx -y @walkcloud/synthetix-mcp
 ```
 
-### 第 2 步:配置客户端(三选一)
-
-复制配置模板并填入你的 API Key:
-
-```bash
-cp .mcp.json.example .mcp.json
-# 编辑 .mcp.json,把 SYNTHETIX_API_KEY 换成你复制的真实 key
-```
-
-然后在 `mcp-server/` 目录下启动你的智能体(Claude Code 会自动读取 `.mcp.json`):
-
-```bash
-claude    # 或 codex / opencode
-```
-
-#### 手动配置(如果你不想用 .mcp.json)
-
-**Claude Code / Claude Desktop / Cursor**(JSON,`mcpServers`):
-
+**Claude Desktop / Cursor / VS Code**(JSON,`mcpServers`):
 ```json
 {
   "mcpServers": {
     "synthetix": {
       "command": "npx",
-      "args": ["-y", "tsx", "src/index.ts"],
+      "args": ["-y", "@walkcloud/synthetix-mcp"],
       "env": {
         "SYNTHETIX_API_KEY": "sk-synt-你的密钥",
         "SYNTHETIX_BASE_URL": "http://localhost:3000"
@@ -68,8 +54,64 @@ claude    # 或 codex / opencode
 }
 ```
 
-> ⚠️ **Windows 用户**:GUI 客户端(Claude Desktop/Cursor)用 `npx` 可能静默失败,需改为:
-> `"command": "cmd", "args": ["/c", "npx", "-y", "tsx", "src\\index.ts"]`
+**Codex**(`~/.codex/config.toml`):
+```toml
+[mcp_servers.synthetix]
+command = "npx"
+args = ["-y", "@walkcloud/synthetix-mcp"]
+
+[mcp_servers.synthetix.env]
+SYNTHETIX_API_KEY = "sk-synt-你的密钥"
+SYNTHETIX_BASE_URL = "http://localhost:3000"
+```
+
+**OpenCode**(`opencode.json`,注意键是 `mcp` + `environment`):
+```json
+{
+  "mcp": {
+    "synthetix": {
+      "type": "local",
+      "command": ["npx", "-y", "@walkcloud/synthetix-mcp"],
+      "enabled": true,
+      "environment": {
+        "SYNTHETIX_API_KEY": "sk-synt-你的密钥",
+        "SYNTHETIX_BASE_URL": "http://localhost:3000"
+      }
+    }
+  }
+}
+```
+
+> ⚠️ **Windows 用户**:GUI 客户端(Claude Desktop/Cursor)用 `npx` 可能静默失败,需把 command 改为 `cmd`,args 改为 `["/c", "npx", "-y", "@walkcloud/synthetix-mcp"]`。Claude Code 命令行版不受此影响。
+
+### 方式二:从源码运行(本地开发/未发布时)
+
+```bash
+git clone https://github.com/WalkCloud/synthetix-mcp-tools.git
+cd synthetix-mcp-tools
+npm install
+```
+
+然后在仓库目录下用 `.mcp.json` 启动(Claude Code 会自动读取):
+
+```bash
+cp .mcp.json.example .mcp.json   # 复制模板
+# 编辑 .mcp.json 填入 SYNTHETIX_API_KEY
+claude                            # 在仓库目录下启动
+```
+
+源码模式下配置用 `tsx` 直跑(改完即生效,免 build):
+```json
+{ "command": "npx", "args": ["-y", "tsx", "src/index.ts"] }
+```
+
+### 配置项
+
+| 变量 | 必填 | 默认 | 说明 |
+|---|---|---|---|
+| `SYNTHETIX_API_KEY` | ✅ | — | 应用「设置 → API 密钥」创建的 key |
+| `SYNTHETIX_BASE_URL` | 否 | `http://localhost:3000` | 应用地址 |
+| `SYNTHETIX_LOCALE` | 否 | `zh-CN` | 系统消息语言(如篇幅追问话术) |
 
 **Codex**(`~/.codex/config.toml`,TOML):
 
@@ -101,14 +143,6 @@ SYNTHETIX_BASE_URL = "http://localhost:3000"
 }
 ```
 
-### 配置项
-
-| 变量 | 必填 | 默认 | 说明 |
-|---|---|---|---|
-| `SYNTHETIX_API_KEY` | ✅ | — | 应用「设置 → API 密钥」创建的 key |
-| `SYNTHETIX_BASE_URL` | 否 | `http://localhost:3000` | 应用地址 |
-| `SYNTHETIX_LOCALE` | 否 | `zh-CN` | 系统消息语言(如篇幅追问话术) |
-
 ---
 
 ## 怎么用(打开智能体后说什么)
@@ -133,6 +167,9 @@ SYNTHETIX_BASE_URL = "http://localhost:3000"
 - **`/longform-writing`** 长文写作冲刺:主题 → 头脑风暴 → 大纲 → 逐章写作 → (可选双模型)→ 导出。填入主题和篇幅即可。
 - **`/quick-outline`** 快速大纲:仅生成结构化大纲,不写作。适合先看结构。
 - **`/dual-model-review`** 双模型审稿:对已有草稿逐章用两模型重写对比,选出更优版。
+- **`/knowledge-deep-dive`** 知识深读:对一篇已上传文档做深度解读,检索要点、提炼结构化摘要。适合研读/学习。
+- **`/proposal-from-scratch`** 方案速成:基于原型(技术方案/投标/咨询等)从零高效生成结构完整的长文,跳过冗长头脑风暴。
+- **`/export-readiness-check`** 导出就绪检查:核对草稿是否所有章节已确认可导出,列出未完成项。导出前最后一道核对。
 
 > 用法示例:在 Claude Code 里输入 `/longform-writing`,填入主题"中小企业数字化转型方案"、篇幅"standard",智能体会按 SOP 引导你完成全文。
 
