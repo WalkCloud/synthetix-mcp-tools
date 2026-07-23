@@ -237,13 +237,29 @@ A: 用官方 MCP Inspector:`npx -y @modelcontextprotocol/inspector npx -y tsx sr
 ## 开发
 
 ```bash
-cd mcp-server
 npm install
 npm run dev        # tsx 直接跑源码(改完即跑,免 build)
 npm run build      # 编译到 dist/(仅发布时需要)
 npm test           # 运行测试
 npm run typecheck  # 类型检查
 ```
+
+## 维护者发布指南
+
+发布到 npm(`@walkcloud/synthetix-mcp`)。每次发新版:
+
+```bash
+# 1. 改 package.json 里的 version(如 1.0.0 → 1.1.0)
+# 2. 提交并推送代码
+git add -A && git commit -m "release: vX.Y.Z" && git push
+
+# 3. 发布(prepublishOnly 会自动 build,无需手动 build)
+npm publish --access public
+```
+
+> 发布需要 `@walkcloud` scope 的发布令牌(已配置在 `~/.npmrc`,带 2FA 豁免,90 天有效)。令牌过期或泄露后,到 https://www.npmjs.com/settings/kevinlee822/tokens 重新生成,再 `npm config set //registry.npmjs.org/:_authToken <新令牌>`。
+>
+> 发布后 registry 全球同步约需 5–15 分钟,期间 `npm view @walkcloud/synthetix-mcp` 可能短暂 404,属正常现象。
 
 ## 安全说明
 
