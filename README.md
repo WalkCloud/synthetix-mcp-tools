@@ -1,29 +1,268 @@
 # Synthetix MCP Server
 
+English | [简体中文](#简体中文)
+
+A Model Context Protocol server that lets AI agents (Claude Code, Codex, OpenCode) drive [Synthetix](https://github.com/WalkCloud/Synthetix) through natural language — ingest documents into a knowledge base, brainstorm outlines, write long-form docs with dual-model comparison, export, manage models, and check token usage, **all without opening a browser**.
+
+This server is a pure adapter: it talks to the running Synthetix app over HTTP + an API key, contains no business logic, and requires zero changes on the app side.
+
+<p align="center">
+  <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
+  <img alt="npm" src="https://img.shields.io/npm/v/@walkcloud/synthetix-mcp?color=cb3837">
+</p>
+
+## What it can do
+
+- 📥 **Ingest documents**: feed local PDF / Word / PPT / HTML / EPUB / Markdown files into the knowledge base; automatic chunking + vectorization + optional knowledge graph
+- 🔍 **Search knowledge**: semantic and keyword search, with source tracing
+- 💡 **Brainstorm**: multi-turn guided dialogue to clarify requirements and produce a structured outline
+- ✍️ **Write long-form docs**: single-section or whole-document generation, with **dual-model A/B comparison** to pick the better version
+- 📤 **Export**: Markdown / PDF / Word
+- ⚙️ **Manage models & usage**: configure providers, view token consumption
+
+## Prerequisites
+
+1. **Synthetix is running** (`npm run dev` or the Electron desktop build, default `localhost:3000`)
+2. **An API key has been created**: in the app → sidebar avatar menu → **API Keys** → create → copy (the plaintext is shown only once)
+3. **Required models are configured** (needed for search/writing): set up embedding + LLM + chat models under **Model Management**
+
+## Installation
+
+### Option A: one-line npx config (recommended, zero install)
+
+This package is published on npm (`@walkcloud/synthetix-mcp`). **No git clone, no build** — just add one line to your client config and `npx` pulls and runs it automatically:
+
+**Claude Code** (one command):
+```bash
+claude mcp add --scope user synthetix \
+  -e SYNTHETIX_API_KEY=sk-synt-your-key \
+  -- npx -y @walkcloud/synthetix-mcp
+```
+
+**Claude Desktop / Cursor / VS Code** (JSON, `mcpServers`):
+```json
+{
+  "mcpServers": {
+    "synthetix": {
+      "command": "npx",
+      "args": ["-y", "@walkcloud/synthetix-mcp"],
+      "env": {
+        "SYNTHETIX_API_KEY": "sk-synt-your-key",
+        "SYNTHETIX_BASE_URL": "http://localhost:3000"
+      }
+    }
+  }
+}
+```
+
+**Codex** (`~/.codex/config.toml`):
+```toml
+[mcp_servers.synthetix]
+command = "npx"
+args = ["-y", "@walkcloud/synthetix-mcp"]
+
+[mcp_servers.synthetix.env]
+SYNTHETIX_API_KEY = "sk-synt-your-key"
+SYNTHETIX_BASE_URL = "http://localhost:3000"
+```
+
+**OpenCode** (`opencode.json` — note the `mcp` + `environment` keys):
+```json
+{
+  "mcp": {
+    "synthetix": {
+      "type": "local",
+      "command": ["npx", "-y", "@walkcloud/synthetix-mcp"],
+      "enabled": true,
+      "environment": {
+        "SYNTHETIX_API_KEY": "sk-synt-your-key",
+        "SYNTHETIX_BASE_URL": "http://localhost:3000"
+      }
+    }
+  }
+}
+```
+
+> ⚠️ **Windows users**: GUI clients (Claude Desktop / Cursor) may silently fail with `npx`. Change `command` to `cmd` and `args` to `["/c", "npx", "-y", "@walkcloud/synthetix-mcp"]`. The Claude Code CLI is unaffected.
+
+### Option B: run from source (for local dev / before publishing)
+
+```bash
+git clone https://github.com/WalkCloud/synthetix-mcp-tools.git
+cd synthetix-mcp-tools
+npm install
+```
+
+Then launch your client from the repo directory using `.mcp.json` (Claude Code reads it automatically):
+
+```bash
+cp .mcp.json.example .mcp.json   # copy the template
+# edit .mcp.json and fill in SYNTHETIX_API_KEY
+claude                            # launch from the repo directory
+```
+
+In source mode, config runs `tsx` directly (edits take effect immediately, no build):
+```json
+{ "command": "npx", "args": ["-y", "tsx", "src/index.ts"] }
+```
+
+### Configuration
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `SYNTHETIX_API_KEY` | ✅ | — | A key created in the app under Settings → API Keys |
+| `SYNTHETIX_BASE_URL` | no | `http://localhost:3000` | The app URL |
+| `SYNTHETIX_LOCALE` | no | `zh-CN` | System message language (e.g. length-follow-up prompts) |
+
+---
+
+## How to use (what to say after opening the agent)
+
+Once connected, **you don't need to remember tool names** — describe what you want in natural language and the agent picks the right tool.
+
+### Conversation examples
+
+| You say | What the agent does |
+|---|---|
+| "Upload this PDF to the knowledge base and process it in graph mode" | `ingest_document` (upload + process) → returns a taskId |
+| "Search the knowledge base for 'lean startup'" | `search_knowledge` → returns results with sources |
+| "I want to write a digital-transformation proposal for SMBs, standard length" | Starts brainstorming → generates an outline |
+| "Write chapter 1 with deepseek and doubao, then compare" | `compare_section` → shows two versions for you to pick |
+| "Just write the whole thing" | `generate_all_sections` (async, auto-confirms) |
+| "Export as Word" | `export_draft` (format=docx) |
+
+### Predefined workflows (slash commands)
+
+Once connected, the agent exposes these **predefined commands** that launch a complete flow in one step (no need to describe the steps yourself):
+
+- **`/longform-writing`** — Long-form writing sprint: topic → brainstorm → outline → per-section writing → (optional dual-model) → export. Just fill in the topic and length.
+- **`/quick-outline`** — Quick outline: only generates a structured outline, no writing. Good for inspecting structure first.
+- **`/dual-model-review`** — Dual-model review: rewrites each chapter of an existing draft with two models and compares them to pick the better version.
+- **`/knowledge-deep-dive`** — Knowledge deep-read: deeply interprets an uploaded document, retrieves key points, distills a structured summary. Good for study/learning.
+- **`/proposal-from-scratch`** — Proposal sprint: archetype-based (technical solution / proposal / bidding / consulting / etc.) fast generation of a structured long-form doc, skipping heavy brainstorm.
+- **`/export-readiness-check`** — Export readiness check: verifies all draft sections are confirmed and exportable; lists any unconfirmed sections. A final check before export.
+
+> Example: in Claude Code type `/longform-writing`, fill in topic "SMB digital transformation proposal" and length "standard", and the agent guides you through the whole document following the SOP.
+
+### Typical end-to-end workflow (7 steps)
+
+```
+1. Ingest    ingest_document          → documentId + taskId (poll until ready)
+2. Search    search_knowledge          → confirm material coverage
+3. Clarify   brainstorm_message (loops)→ advance until requirements are clear
+4. Outline   generate_outline → get_outline → create_draft (no need to re-pass the outline)
+5. Write     generate_section / generate_all_sections
+              └ single section: requires confirm_section before export
+              └ whole document: auto-locks, directly exportable
+6. Compare   compare_section → user picks → confirm_section(selectedSource)
+7. Export    export_draft (markdown/pdf/docx)
+```
+
+Each step's output (documentId / sessionId / draftId / sectionId) feeds the next.
+
+## Tools (33)
+
+**Async tasks**: `get_task_status` · `cancel_task` · `list_tasks`
+> Document processing, outline generation, whole-document writing, etc. return a `taskId`; poll with `get_task_status` (every 10–30s) until `completed`.
+
+**Documents & knowledge**: `ingest_document` · `list_documents` · `get_document` · `search_knowledge` · `get_knowledge_graph` · `list_wiki_entries` · `get_wiki_entry` · `synthesize_wiki`
+
+**Brainstorm & outline**: `create_brainstorm_session` · `brainstorm_message` · `generate_outline` · `get_outline` · `update_outline`
+
+**Writing**: `create_draft` · `list_drafts` · `get_draft` · `generate_section` · `generate_all_sections` · `compare_section` · `confirm_section` · `edit_section` · `assemble_preview`
+
+**Export & model management**: `export_draft` · `list_providers` · `create_provider` · `update_provider` · `delete_provider` · `set_default_model` · `test_connection` · `get_token_usage`
+
+## Troubleshooting
+
+**Q: Startup error "SYNTHETIX_API_KEY is required"**
+A: No API key was passed. Add it to the client's `env` config (see Installation above).
+
+**Q: A tool returns "API key invalid or revoked"**
+A: The key is wrong or revoked. Recreate it in the app under Settings → API Keys.
+
+**Q: Returns "Cannot connect to the Synthetix app"**
+A: The app isn't running, or `SYNTHETIX_BASE_URL` is wrong. Make sure the app is running (`npm run dev`) and the URL is correct.
+
+**Q: Search/writing returns "embedding/LLM model not configured"**
+A: Knowledge-base search needs embedding+LLM models; writing needs a chat model. Configure them under Model Management.
+
+**Q: Export to PDF/Word fails**
+A: PDF depends on Playwright Chromium, Word on python-docx. If missing, export as markdown instead.
+
+**Q: A call returned a taskId — now what?**
+A: Long tasks (document processing / outline / whole-document writing) are async. Poll with `get_task_status(taskId)` until status becomes `completed` / `failed` / `cancelled`. Don't assume the first call returns the result.
+
+**Q: Doesn't work on Windows**
+A: GUI clients may silently fail with `npx`; change to `"command": "cmd", "args": ["/c", "npx", ...]` (see the Windows note in Installation). The Claude Code CLI is unaffected.
+
+**Q: How to debug the server itself?**
+A: Use the official MCP Inspector: `npx -y @modelcontextprotocol/inspector npx -y tsx src/index.ts`. With env set, you can test each tool in the browser.
+
+## Development
+
+```bash
+npm install
+npm run dev        # run source directly with tsx (no build, edits take effect immediately)
+npm run build      # compile to dist/ (only needed for publishing)
+npm test           # run tests
+npm run typecheck  # type-check
+```
+
+## Maintainer publish guide
+
+To publish a new version to npm (`@walkcloud/synthetix-mcp`):
+
+```bash
+# 1. Bump version in package.json (e.g. 1.1.0 → 1.2.0)
+# 2. Commit and push
+git add -A && git commit -m "release: vX.Y.Z" && git push
+
+# 3. Publish (prepublishOnly auto-builds)
+npm publish --access public
+```
+
+> Publishing requires an `@walkcloud` scope publish token (configured in `~/.npmrc`, with 2FA bypass, valid 90 days). If it expires or leaks, regenerate at https://www.npmjs.com/settings/kevinlee822/tokens and run `npm config set //registry.npmjs.org/:_authToken <new-token>`.
+>
+> After publishing, global registry propagation takes ~5–15 minutes; `npm view @walkcloud/synthetix-mcp` may briefly 404 during this window.
+
+## Security
+
+- API keys are stored as SHA-256 hashes on the app side and invalidated immediately on revocation.
+- This server is only an HTTP client holding a key; it does not cache credentials or document content.
+- Model-management tools never echo secrets (the app only returns an `hasApiKey` boolean).
+- `.mcp.json` (with a real key) is git-ignored; only the `.mcp.json.example` template is committed.
+
+## License
+
+[Apache License 2.0](./LICENSE). Consistent with the main [Synthetix](https://github.com/WalkCloud/Synthetix) repo.
+
+---
+
+# 简体中文
+
+[English](#english) | 简体中文
+
+# Synthetix MCP Server
+
 让 Claude Code、Codex、OpenCode 等智能体通过自然语言驱动 [Synthetix](https://github.com/WalkCloud/Synthetix)——上传文档构建知识库、头脑风暴生成大纲、撰写长文、双模型对比、导出、管理模型、查看 token 用量,**全程无需打开浏览器**。
 
 本 server 是纯适配层:通过 HTTP + API Key 调用运行中的 Synthetix 应用,不含业务逻辑,应用侧零改动。
 
----
-
 ## 它能做什么
 
-- 📥 **摄入文档**:把本地 PDF/Word/PPT/网页等喂进知识库,自动分块+向量化+建图谱
+- 📥 **摄入文档**:把本地 PDF/Word/PPT/网页等喂进知识库,自动分块+向量化+可选图谱
 - 🔍 **检索知识**:语义/关键词搜索,带来源追溯
 - 💡 **头脑风暴**:多轮引导式对话梳理需求,生成结构化大纲
 - ✍️ **撰写长文**:单章/整篇生成,**双模型 A/B 对比**选出更优版本
 - 📤 **导出**:Markdown / PDF / Word
 - ⚙️ **管理模型与用量**:配置 provider、查看 token 消耗
 
----
-
 ## 前置条件
 
 1. **Synthetix 应用正在运行**(`npm run dev` 或 Electron 桌面版,默认 `localhost:3000`)
 2. **已创建 API Key**:应用 → 侧边栏头像菜单 → **API 密钥** → 创建 → 复制(明文仅显示一次)
 3. **已配置所需模型**(检索/写作需要):「模型管理」中配好 embedding + LLM + chat 模型
-
----
 
 ## 安装
 
@@ -113,36 +352,6 @@ claude                            # 在仓库目录下启动
 | `SYNTHETIX_BASE_URL` | 否 | `http://localhost:3000` | 应用地址 |
 | `SYNTHETIX_LOCALE` | 否 | `zh-CN` | 系统消息语言(如篇幅追问话术) |
 
-**Codex**(`~/.codex/config.toml`,TOML):
-
-```toml
-[mcp_servers.synthetix]
-command = "npx"
-args = ["-y", "tsx", "src/index.ts"]
-
-[mcp_servers.synthetix.env]
-SYNTHETIX_API_KEY = "sk-synt-你的密钥"
-SYNTHETIX_BASE_URL = "http://localhost:3000"
-```
-
-**OpenCode**(`opencode.json`,注意键是 `mcp` + `environment`):
-
-```json
-{
-  "mcp": {
-    "synthetix": {
-      "type": "local",
-      "command": ["npx", "-y", "tsx", "src/index.ts"],
-      "enabled": true,
-      "environment": {
-        "SYNTHETIX_API_KEY": "sk-synt-你的密钥",
-        "SYNTHETIX_BASE_URL": "http://localhost:3000"
-      }
-    }
-  }
-}
-```
-
 ---
 
 ## 怎么用(打开智能体后说什么)
@@ -189,8 +398,6 @@ SYNTHETIX_BASE_URL = "http://localhost:3000"
 
 每一步的产物(documentId / sessionId / draftId / sectionId)会自动传递给下一步。
 
----
-
 ## 工具一览(33 个)
 
 **通用任务**:`get_task_status` · `cancel_task` · `list_tasks`
@@ -203,8 +410,6 @@ SYNTHETIX_BASE_URL = "http://localhost:3000"
 **写作**:`create_draft` · `list_drafts` · `get_draft` · `generate_section` · `generate_all_sections` · `compare_section` · `confirm_section` · `edit_section` · `assemble_preview`
 
 **导出与模型设置**:`export_draft` · `list_providers` · `create_provider` · `update_provider` · `delete_provider` · `set_default_model` · `test_connection` · `get_token_usage`
-
----
 
 ## 故障排查
 
@@ -232,8 +437,6 @@ A: GUI 客户端用 `npx` 会静默失败,改成 `"command": "cmd", "args": ["/c
 **Q: 怎么调试 server 本身?**
 A: 用官方 MCP Inspector:`npx -y @modelcontextprotocol/inspector npx -y tsx src/index.ts`,带 env 即可在浏览器里测试每个工具。
 
----
-
 ## 开发
 
 ```bash
@@ -249,7 +452,7 @@ npm run typecheck  # 类型检查
 发布到 npm(`@walkcloud/synthetix-mcp`)。每次发新版:
 
 ```bash
-# 1. 改 package.json 里的 version(如 1.0.0 → 1.1.0)
+# 1. 改 package.json 里的 version(如 1.1.0 → 1.2.0)
 # 2. 提交并推送代码
 git add -A && git commit -m "release: vX.Y.Z" && git push
 
@@ -268,6 +471,6 @@ npm publish --access public
 - 模型管理工具永不回显密钥(应用侧仅返回 `hasApiKey` 布尔)。
 - `.mcp.json`(含真实 key)已被 `.gitignore` 忽略,只提交 `.mcp.json.example` 模板。
 
-## License · 许可证
+## 许可证
 
-[Apache License 2.0](./LICENSE). 与主仓库 [Synthetix](https://github.com/WalkCloud/Synthetix) 一致。
+[Apache License 2.0](./LICENSE)。与主仓库 [Synthetix](https://github.com/WalkCloud/Synthetix) 一致。
