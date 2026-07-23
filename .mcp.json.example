@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "synthetix": {
+      "command": "npx",
+      "args": ["-y", "tsx", "src/index.ts"],
+      "env": {
+        "SYNTHETIX_API_KEY": "在此粘贴你在应用「设置 → API 密钥」创建的 key",
+        "SYNTHETIX_BASE_URL": "http://localhost:3000"
+      }
+    }
+  }
+}
