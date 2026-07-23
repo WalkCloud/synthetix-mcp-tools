@@ -1,6 +1,6 @@
 {
   "name": "@walkcloud/synthetix-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP server bridging AI agents (Claude Code, Codex, OpenCode) to the Synthetix app — ingest documents, brainstorm outlines, write long-form docs with dual-model compare, export.",
   "type": "module",
   "bin": {
